@@ -9,6 +9,13 @@ LEFT_EYE = [
 
 LEFT_IRIS = [468, 469, 470, 471, 472]
 
+RIGHT_EYE = [
+    362, 382, 381, 380, 374, 373, 390, 249,
+    263, 466, 388, 387, 386, 385, 384, 398
+]
+
+RIGHT_IRIS = [473, 474, 475, 476, 477]
+
 
 def extract_eye_landmarks(face_landmarks, width, height):
 

@@ -2,10 +2,16 @@ import cv2
 import mediapipe as mp
 
 from eye_cropper import get_eye_features
+from ear import compute_ear
+from blink_detector import BlinkDetector
+from perclos import Perclos
+from eye_closure_tracker import EyeClosureTracker
 
 mp_face_mesh = mp.solutions.face_mesh
 
 cap = cv2.VideoCapture(0)
+
+
 
 with mp_face_mesh.FaceMesh(
     static_image_mode=False,
@@ -14,6 +20,12 @@ with mp_face_mesh.FaceMesh(
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 ) as face_mesh:
+    blink_detector = BlinkDetector(
+        ear_threshold=0.15,
+        min_closed_frames=3
+    ) 
+    perclos_tracker = Perclos()
+    closure_tracker=EyeClosureTracker()
 
     while True:
 
@@ -33,6 +45,28 @@ with mp_face_mesh.FaceMesh(
         if results.multi_face_landmarks:
 
             for face_landmarks in results.multi_face_landmarks:
+                
+                left_ear, right_ear, ear = compute_ear(
+                    face_landmarks,
+                    w,
+                    h
+                )
+                
+                
+                blink_data = blink_detector.update(
+                    left_ear,
+                    right_ear
+                )
+
+
+                perclos = perclos_tracker.update(blink_data["eye_closed"])
+                closed_frames = closure_tracker.update(
+                    blink_data["eye_closed"]
+                )
+
+                closed_time = closed_frames / 30.0
+                            
+
 
                 features = get_eye_features(
                     face_landmarks,
@@ -108,7 +142,7 @@ with mp_face_mesh.FaceMesh(
                 # -----------------------
                 # Debug Information
                 # -----------------------
-
+                
                 cv2.putText(
                     frame,
                     f"Eye Width: {features['eye_width']}",
@@ -138,6 +172,81 @@ with mp_face_mesh.FaceMesh(
                     (0, 255, 255),
                     2
                 )
+
+                cv2.putText(
+                    frame,
+                    f"L-EAR: {left_ear:.3f}",
+                    (10,120),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0,255,0),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"R-EAR: {right_ear:.3f}",
+                    (10,150),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0,255,0),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"AVG-EAR: {ear:.3f}",
+                    (10,180),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0,255,0),
+                    2
+                )
+                cv2.putText(
+                    frame,
+                    f"Blinks: {blink_data['blink_count']}",
+                    (10, 150),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255,255,0),
+                    2
+                )
+                status = (
+                    "CLOSED"
+                    if blink_data["eye_closed"]
+                    else "OPEN"
+                )
+
+                cv2.putText(
+                    frame,
+                    f"Eye: {status}",
+                    (10, 180),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0,0,255),
+                    2
+                )
+                
+                cv2.putText(
+                    frame,
+                    f"PERCLOS: {perclos:.2f}%",
+                    (10, 210),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 0, 255),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"Closed: {closed_time:.1f}s",
+                    (10,240),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0,255,255),
+                    2
+                )
+
 
         cv2.imshow("Iris Debug", frame)
 
