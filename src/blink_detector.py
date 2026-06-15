@@ -3,7 +3,7 @@ class BlinkDetector:
     def __init__(
         self,
         ear_threshold=0.15,
-        min_closed_frames=3
+        min_closed_frames=2
     ):
 
         self.ear_threshold = ear_threshold

@@ -1,11 +1,13 @@
 import cv2
 import mediapipe as mp
+import time
 
 from eye_cropper import get_eye_features
 from ear import compute_ear
 from blink_detector import BlinkDetector
 from perclos import Perclos
 from eye_closure_tracker import EyeClosureTracker
+from gaze_estimator import GazeEstimator
 
 mp_face_mesh = mp.solutions.face_mesh
 
@@ -26,10 +28,17 @@ with mp_face_mesh.FaceMesh(
     ) 
     perclos_tracker = Perclos()
     closure_tracker=EyeClosureTracker()
+    gaze = GazeEstimator()
+    frame_count = 0
+    last_yaw = None
+    last_pitch = None
+    prev_time = time.time()
+
 
     while True:
 
         success, frame = cap.read()
+        
 
         if not success:
             break
@@ -73,6 +82,26 @@ with mp_face_mesh.FaceMesh(
                     w,
                     h
                 )
+                frame_count += 1
+
+                if frame_count % 3 == 0:
+                
+
+                    last_yaw, last_pitch = gaze.estimate(frame)
+                yaw =last_yaw
+                pitch = last_pitch
+                
+
+                if yaw is not None:
+                    cv2.putText(
+                        frame,
+                        f"Yaw:{yaw:.2f} Pitch:{pitch:.2f}",
+                        (10, 270),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 255, 0),
+                        2
+                    )
 
                 # -----------------------
                 # Eye contour landmarks
@@ -205,7 +234,7 @@ with mp_face_mesh.FaceMesh(
                 cv2.putText(
                     frame,
                     f"Blinks: {blink_data['blink_count']}",
-                    (10, 150),
+                    (10, 300),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.7,
                     (255,255,0),
@@ -220,7 +249,7 @@ with mp_face_mesh.FaceMesh(
                 cv2.putText(
                     frame,
                     f"Eye: {status}",
-                    (10, 180),
+                    (10, 350),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.7,
                     (0,0,255),
@@ -246,6 +275,22 @@ with mp_face_mesh.FaceMesh(
                     (0,255,255),
                     2
                 )
+        current_time = time.time()
+
+        fps = 1 / (current_time - prev_time)
+        prev_time = current_time
+
+        cv2.putText(
+            frame,
+            f"FPS: {fps:.1f}",
+            (10, 390),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2
+        )
+
+
 
 
         cv2.imshow("Iris Debug", frame)
