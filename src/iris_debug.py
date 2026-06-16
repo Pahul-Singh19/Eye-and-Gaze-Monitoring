@@ -8,6 +8,7 @@ from blink_detector import BlinkDetector
 from perclos import Perclos
 from eye_closure_tracker import EyeClosureTracker
 from gaze_estimator import GazeEstimator
+from gaze_tracker import GazeTracker
 
 mp_face_mesh = mp.solutions.face_mesh
 
@@ -29,6 +30,7 @@ with mp_face_mesh.FaceMesh(
     perclos_tracker = Perclos()
     closure_tracker=EyeClosureTracker()
     gaze = GazeEstimator()
+    gaze_tracker=GazeTracker()
     frame_count = 0
     last_yaw = None
     last_pitch = None
@@ -82,24 +84,81 @@ with mp_face_mesh.FaceMesh(
                     w,
                     h
                 )
+                xs = [
+                    int(lm.x * w)
+                    for lm in face_landmarks.landmark
+                ]
+
+                ys = [
+                    int(lm.y * h)
+                    for lm in face_landmarks.landmark
+                ]
+
+                padding = 20
+
+                x_min = max(0, min(xs) - padding)
+                y_min = max(0, min(ys) - padding)
+
+                x_max = min(w, max(xs) + padding)
+                y_max = min(h, max(ys) + padding)
+
+                cv2.rectangle(
+                    frame,
+                    (x_min, y_min),
+                    (x_max, y_max),
+                    (255, 0, 0),
+                    2
+                )
+                face_crop = frame[
+                    y_min:y_max,
+                    x_min:x_max
+                ]
+                cv2.imshow("Face Crop", face_crop)
                 frame_count += 1
 
                 if frame_count % 3 == 0:
                 
 
-                    last_yaw, last_pitch = gaze.estimate(frame)
+                    last_yaw, last_pitch = gaze.estimate(face_crop)
                 yaw =last_yaw
                 pitch = last_pitch
+                gaze_data = None
                 
-
+                
                 if yaw is not None:
+                    gaze_data = gaze_tracker.update(
+                    yaw,
+                    pitch
+                )
+                
+                    
                     cv2.putText(
                         frame,
-                        f"Yaw:{yaw:.2f} Pitch:{pitch:.2f}",
+                        f"Yaw:{yaw*57.3:.1f} Pitch:{pitch*57.3:.1f}",
                         (10, 270),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6,
                         (0, 255, 0),
+                        2
+                    )
+                if gaze_data is not None:
+                    cv2.putText(
+                    frame,
+                    f"Yaw Var:{gaze_data['yaw_variance']:.4f}",
+                    (10, 420),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 0),
+                    2
+                )
+
+                    cv2.putText(
+                        frame,
+                        f"Pitch Var:{gaze_data['pitch_variance']:.4f}",
+                        (10, 440),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (255, 255, 0),
                         2
                     )
 

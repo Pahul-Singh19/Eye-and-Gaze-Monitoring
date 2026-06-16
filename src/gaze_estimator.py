@@ -28,8 +28,7 @@ class GazeEstimator:
         start = time.time()
 
         results = self.pipeline.step(frame)
-     
-
+      
         yaw = float(results.yaw[0])
         pitch = float(results.pitch[0])
         
