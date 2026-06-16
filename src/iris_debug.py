@@ -161,6 +161,15 @@ with mp_face_mesh.FaceMesh(
                         (255, 255, 0),
                         2
                     )
+                    cv2.putText(
+                        frame,
+                        f"Fixation:{gaze_data['fixation_duration']:.1f}s",
+                        (10, 470),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (255,255,0),
+                        2
+                    )
 
                 # -----------------------
                 # Eye contour landmarks
