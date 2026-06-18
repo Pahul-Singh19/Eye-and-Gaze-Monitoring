@@ -9,6 +9,8 @@ from perclos import Perclos
 from eye_closure_tracker import EyeClosureTracker
 from gaze_estimator import GazeEstimator
 from gaze_tracker import GazeTracker
+from datetime import datetime
+from csv_logger import CSVLogger
 
 mp_face_mesh = mp.solutions.face_mesh
 
@@ -24,22 +26,30 @@ with mp_face_mesh.FaceMesh(
     min_tracking_confidence=0.5
 ) as face_mesh:
     blink_detector = BlinkDetector(
-        ear_threshold=0.15,
-        min_closed_frames=3
+        ear_threshold=0.16,
+        min_closed_frames=2
     ) 
     perclos_tracker = Perclos()
     closure_tracker=EyeClosureTracker()
     gaze = GazeEstimator()
     gaze_tracker=GazeTracker()
+    logger = CSVLogger(
+    filename="../data/check.csv",
+    label="check",
+    subject_id="subject_01"
+)
     frame_count = 0
     last_yaw = None
     last_pitch = None
     prev_time = time.time()
+    last_log_time = time.time()
+    lowest_ear = 1.0
 
 
     while True:
 
         success, frame = cap.read()
+        
         
 
         if not success:
@@ -68,6 +78,9 @@ with mp_face_mesh.FaceMesh(
                     left_ear,
                     right_ear
                 )
+                if ear < lowest_ear:
+                    lowest_ear = ear
+                    print(f"New lowest EAR: {lowest_ear:.3f}")
 
 
                 perclos = perclos_tracker.update(blink_data["eye_closed"])
@@ -145,7 +158,7 @@ with mp_face_mesh.FaceMesh(
                     cv2.putText(
                     frame,
                     f"Yaw Var:{gaze_data['yaw_variance']:.4f}",
-                    (10, 420),
+                    (10, 430),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
                     (255, 255, 0),
@@ -155,7 +168,7 @@ with mp_face_mesh.FaceMesh(
                     cv2.putText(
                         frame,
                         f"Pitch Var:{gaze_data['pitch_variance']:.4f}",
-                        (10, 440),
+                        (40, 460),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6,
                         (255, 255, 0),
@@ -164,12 +177,87 @@ with mp_face_mesh.FaceMesh(
                     cv2.putText(
                         frame,
                         f"Fixation:{gaze_data['fixation_duration']:.1f}s",
-                        (10, 470),
+                        (320, 430),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6,
                         (255,255,0),
                         2
                     )
+                    cv2.putText(
+                    frame,
+                    f"Recent Saccades:{gaze_data['recent_saccades']}",
+                    (320, 460),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255,255,0),
+                    2
+                )
+                    behavior_state = "alert"
+
+                    if blink_data["eye_closed"]:
+                        behavior_state = "eye_closed"
+
+                    elif perclos > 40:
+                        behavior_state = "drowsy"
+
+                    elif gaze_data["recent_saccades"] > 8:
+                        behavior_state = "scanning"
+
+                    elif gaze_data["fixation_duration"] > 2:
+                        behavior_state = "fixation"
+                    if time.time() - last_log_time >= 1:
+
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+
+                        logger.log(
+                            timestamp=timestamp,
+                            frame=frame_count,
+                            ear=round(ear, 4),
+                            blink_rate=blink_data["blink_rate"],
+                            perclos=round(perclos, 2),
+                            closure_time=round(closed_time, 2),
+
+                            yaw=round(float(yaw), 4) if yaw is not None else None,
+                            pitch=round(float(pitch), 4) if pitch is not None else None,
+
+                            gaze_variance=round(
+                                gaze_data["gaze_variance"],
+                                6
+                            ),
+
+                            saccade_count=gaze_data["saccade_count"],
+
+                            recent_saccades=round(
+                                gaze_data["recent_saccades"],
+                                4
+                            ),
+
+                            mean_gaze_speed=round(
+                                gaze_data["mean_gaze_speed"],
+                                4
+                            ),
+
+                            max_gaze_speed=round(
+                                gaze_data["max_gaze_speed"],
+                                4
+                            ),
+
+                            eye_contact_ratio=round(
+                                gaze_data["eye_contact_ratio"],
+                                4
+                            ),
+
+                            fixation_duration=round(
+                                gaze_data["fixation_duration"],
+                                2
+                            ),
+
+                            behavior_state=behavior_state
+                        )
+
+                        last_log_time = time.time()
+                        
+                    
 
                 # -----------------------
                 # Eye contour landmarks
@@ -365,6 +453,6 @@ with mp_face_mesh.FaceMesh(
 
         if cv2.waitKey(1) & 0xFF == 27:
             break
-
+logger.close()
 cap.release()
 cv2.destroyAllWindows()

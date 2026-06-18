@@ -5,3 +5,5 @@ outputs/
 *.pkl
 *.pt
 *.pth
+data/
+__pycache__

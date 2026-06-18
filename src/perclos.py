@@ -3,7 +3,7 @@ from collections import deque
 
 class Perclos:
 
-    def __init__(self, window_size=1800):
+    def __init__(self, window_size=900):
         # 60 seconds at ~30 FPS
         self.window = deque(maxlen=window_size)
 
